@@ -1,43 +1,53 @@
 """
-embeddings.py
--------------
-Local embedding model, wrapped through LangChain's Embeddings interface
-(HuggingFaceEmbeddings) so the rest of the pipeline talks to embeddings
-the same way it talks to every other LangChain component. No LLM, no API
-key required for the default public model.
+ingestion/embeddings.py
+-------------------------
+Embedding-model factory. Two providers, switched via
+config.EMBEDDING_PROVIDER:
 
-The model name comes from config.py (itself overridable via
-EMBEDDING_MODEL_NAME in .env), so swapping models never means touching
-this file.
+  - "huggingface" (default): HuggingFaceEmbeddings -- free, runs
+    locally, downloads the model the first time
+    (config.EMBEDDING_MODEL_NAME, e.g.
+    "sentence-transformers/all-MiniLM-L6-v2").
+  - "openai": OpenAIEmbeddings -- a paid API call per chunk/query (e.g.
+    config.EMBEDDING_MODEL_NAME = "text-embedding-3-small"), needs
+    OPENAI_API_KEY in .env. OpenAI's embeddings are already normalized
+    to unit length by their API, so this works as a drop-in for the
+    existing DistanceStrategy.MAX_INNER_PRODUCT setup with no other
+    changes needed.
+
+IMPORTANT: switching either the provider or the model name changes the
+embedding vector space -- a FAISS index built with one embedding model
+is NOT compatible with a different one. After changing this, you must
+re-run the ingestion pipeline (python -m ingestion.pipeline) to rebuild
+data/ from scratch; otherwise search() silently compares incompatible
+vectors and returns meaningless results with no error at all.
 """
 
 import logging
-
-from langchain_huggingface import HuggingFaceEmbeddings
 
 import config
 
 logger = logging.getLogger(__name__)
 
-_embeddings = None  # lazy singleton -- loaded once, reused everywhere
+_embeddings = None
 
 
 def get_embeddings():
-    """Return a LangChain Embeddings object. embed_documents(texts) and
-    embed_query(text) are the two methods the rest of the pipeline uses.
-
-    normalize_embeddings=True makes embed output unit vectors, so cosine
-    similarity == inner product -- this is what lets vector_store.py use
-    FAISS's MAX_INNER_PRODUCT distance strategy and get similarity
-    scores in a familiar 0-1-ish range.
-    """
     global _embeddings
     if _embeddings is None:
-        logger.info("Loading embedding model: %s", config.EMBEDDING_MODEL_NAME)
-        _embeddings = HuggingFaceEmbeddings(
-            model_name=config.EMBEDDING_MODEL_NAME,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
+        logger.info(
+            "Loading embedding model: provider=%s model=%s",
+            config.EMBEDDING_PROVIDER, config.EMBEDDING_MODEL_NAME,
         )
+        if config.EMBEDDING_PROVIDER == "openai":
+            from langchain_openai import OpenAIEmbeddings
+            _embeddings = OpenAIEmbeddings(model=config.EMBEDDING_MODEL_NAME)
+        else:
+            from langchain_huggingface import HuggingFaceEmbeddings
+            _embeddings = HuggingFaceEmbeddings(
+                model_name=config.EMBEDDING_MODEL_NAME,
+                model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True},
+            )
         logger.info("Embedding model ready")
     return _embeddings

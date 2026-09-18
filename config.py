@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Ingestion ---
+# provider: "huggingface" (default, free/local) | "openai" (paid API,
+# e.g. "text-embedding-3-small" or "text-embedding-3-large")
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "huggingface")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
 HF_TOKEN = os.getenv("HF_TOKEN")
 CHUNK_SIZE_CHARS = int(os.getenv("CHUNK_SIZE_CHARS", "800"))
@@ -35,10 +38,6 @@ LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.0"))
 
 # --- Judge LLM (grounded precision + accuracy scoring during evaluation) ---
-# Defaults to the SAME model as above -- set these separately in .env only
-# if you want judging to use a different (e.g. free/cheaper) model than
-# the main agent, such as LLM_PROVIDER=openai for answers but
-# JUDGE_LLM_PROVIDER=huggingface_endpoint for judging.
 JUDGE_LLM_PROVIDER = os.getenv("JUDGE_LLM_PROVIDER", LLM_PROVIDER)
 JUDGE_LLM_MODEL_NAME = os.getenv("JUDGE_LLM_MODEL_NAME", LLM_MODEL_NAME)
 JUDGE_LLM_TEMPERATURE = float(os.getenv("JUDGE_LLM_TEMPERATURE", str(LLM_TEMPERATURE)))
