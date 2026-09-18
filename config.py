@@ -29,10 +29,19 @@ TOP_K_RERANK_CANDIDATES = int(os.getenv("TOP_K_RERANK_CANDIDATES", "10"))
 RRF_K = int(os.getenv("RRF_K", "60"))
 RERANKER_MODEL_NAME = os.getenv("RERANKER_MODEL_NAME", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-# --- Agent / LLM ---
+# --- Agent / LLM (main -- powers the ReAct agent and the eval baseline) ---
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.0"))
+
+# --- Judge LLM (grounded precision + accuracy scoring during evaluation) ---
+# Defaults to the SAME model as above -- set these separately in .env only
+# if you want judging to use a different (e.g. free/cheaper) model than
+# the main agent, such as LLM_PROVIDER=openai for answers but
+# JUDGE_LLM_PROVIDER=huggingface_endpoint for judging.
+JUDGE_LLM_PROVIDER = os.getenv("JUDGE_LLM_PROVIDER", LLM_PROVIDER)
+JUDGE_LLM_MODEL_NAME = os.getenv("JUDGE_LLM_MODEL_NAME", LLM_MODEL_NAME)
+JUDGE_LLM_TEMPERATURE = float(os.getenv("JUDGE_LLM_TEMPERATURE", str(LLM_TEMPERATURE)))
 
 # --- Agent guardrails ---
 MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "6"))

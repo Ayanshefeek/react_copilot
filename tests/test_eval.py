@@ -88,7 +88,7 @@ def test_langchain_deepeval_adapter_delegates_to_the_wrapped_llm():
 
     adapter = LangChainDeepEvalLLM(llm=FakeLLM())
     assert adapter.generate("hello") == "echo:hello"
-    assert adapter.get_model_name() == "project-configured-llm"
+    assert adapter.get_model_name() == "project-configured-judge-llm"
 
 
 # ---------------------------------------------------------------------------

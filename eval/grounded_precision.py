@@ -7,17 +7,16 @@ they're attached to (per the project spec's own definition -- NOT
 whether the quote is verbatim traceable to a retrieved chunk, which is
 the separate hallucination guardrail already in agent/guardrails.py).
 
-Design (cost-optimized, agreed on after discussion):
+Uses get_judge_llm() (not get_llm()) so this can run on a different,
+cheaper model than the main agent -- see config.JUDGE_LLM_PROVIDER.
+
+Design (cost-optimized):
   - zero citations in the answer -> grounded_precision = 0.0, NO LLM
-    call at all (nothing to judge, nothing to pay for -- covers most of
-    the "llm" baseline rows for free)
+    call at all
   - otherwise -> ONE LLM call per answer, given the full answer text and
     its extracted citations, asked to internally judge each citation
     against the claim it's attached to and return ONLY a single decimal
-    in [0, 1] -- the fraction of citations that are supported. This
-    keeps the score anchored to an explicit definition (not a vague
-    "rate this 0-1" impression) while paying for one call and a handful
-    of output tokens, not one call per citation.
+    in [0, 1] -- the fraction of citations that are supported.
 """
 
 import logging
@@ -26,7 +25,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent.guardrails import call_with_retry, extract_citations
-from agent.llm import get_llm
+from agent.llm import get_judge_llm
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +66,13 @@ def _parse_score(text):
 
 
 def compute_grounded_precision(answer_text, llm=None):
-    """Returns a float in [0, 1]. See module docstring for the rule."""
+    """Returns a float in [0, 1]. Uses config.JUDGE_LLM_* by default."""
     citations = extract_citations(answer_text)
     if not citations:
         logger.debug("No citations found -- grounded_precision=0.0, no LLM call")
         return 0.0
 
-    llm = llm or get_llm()
+    llm = llm or get_judge_llm()
     citations_block = _format_citations_for_judge(citations)
     user_message = f"ANSWER:\n{answer_text}\n\nCITATIONS:\n{citations_block}"
 

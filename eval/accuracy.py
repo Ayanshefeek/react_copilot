@@ -1,23 +1,12 @@
 """
 eval/accuracy.py
 -------------------
-Computes the evaluation report's "accuracy" metric: how well each
-generated answer matches the expected content in gold_supporting_snippet
-(from evaluation_questions.csv), using deepeval's GEval -- a
-custom-criteria LLM-judge metric. Accuracy needs semantic judgment (a
-correct answer won't be a verbatim match to the gold snippet), which is
-exactly what GEval is built for.
+Computes the evaluation report's "accuracy" metric via deepeval's
+GEval, comparing each answer to its gold_supporting_snippet.
 
-RAGAS was tried first, but its latest release hardcodes an import that
-no longer exists in current langchain-community, and there's no
-published version combination that works alongside this project's
-LangChain 1.x stack -- confirmed directly, see requirements.txt. deepeval
-installs cleanly with no such conflict.
-
-LangChainDeepEvalLLM below wires GEval's judge to the SAME LLM as the
-rest of the project (config.LLM_PROVIDER/LLM_MODEL_NAME via
-agent/llm.get_llm()) instead of deepeval's OpenAI-only default, so the
-accuracy judge stays consistent with whichever provider is configured.
+LangChainDeepEvalLLM wires GEval's judge to get_judge_llm() by default
+(not the main agent's get_llm()) -- see config.JUDGE_LLM_PROVIDER to
+run judging on a different/cheaper model than the ReAct agent uses.
 """
 
 import logging
@@ -28,17 +17,16 @@ from deepeval.test_case import LLMTestCase
 from deepeval.test_case.llm_test_case import SingleTurnParams
 from langchain_core.messages import HumanMessage
 
-from agent.llm import get_llm
+from agent.llm import get_judge_llm
 
 logger = logging.getLogger(__name__)
 
 
 class LangChainDeepEvalLLM(DeepEvalBaseLLM):
-    """Adapts a LangChain chat model (whatever agent/llm.get_llm() built)
-    to deepeval's model interface."""
+    """Adapts a LangChain chat model to deepeval's model interface."""
 
     def __init__(self, llm=None):
-        self._llm = llm or get_llm()
+        self._llm = llm or get_judge_llm()
 
     def load_model(self):
         return self._llm
@@ -52,10 +40,10 @@ class LangChainDeepEvalLLM(DeepEvalBaseLLM):
         return response.content
 
     def get_model_name(self) -> str:
-        return "project-configured-llm"
+        return "project-configured-judge-llm"
 
 
-_accuracy_metric = None  # lazy singleton, same pattern as the rest of the project
+_accuracy_metric = None
 
 
 def get_accuracy_metric():
@@ -77,13 +65,12 @@ def get_accuracy_metric():
             ],
             model=LangChainDeepEvalLLM(),
             threshold=0.5,
-            async_mode=False,  # the eval harness runs one question at a time, keep this synchronous
+            async_mode=False,
         )
     return _accuracy_metric
 
 
 def compute_accuracy(question, answer, gold_supporting_snippet):
-    """Returns a float in [0, 1] -- GEval's own score."""
     metric = get_accuracy_metric()
     test_case = LLMTestCase(
         input=question,
