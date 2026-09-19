@@ -13,3 +13,8 @@ langgraph>=1.0
 langchain-openai>=0.2
 langchain-anthropic>=0.2
 deepeval>=4.0
+fastapi
+uvicorn[standard]
+streamlit
+httpx
+pandas

@@ -30,6 +30,14 @@ from retrieval.tools import RetrievalTools
 
 logger = logging.getLogger(__name__)
 
+# Shown to the user (not treated as a system error) when the agent runs
+# out of its step budget without producing a final answer -- this is a
+# guardrail doing its job (e.g. an out-of-corpus question), not a crash.
+NO_RELEVANT_INFO_MESSAGE = (
+    "I could not find relevant information in the corpus to answer this "
+    "question within the allowed reasoning steps."
+)
+
 
 def build_agent(retrieval_tools=None, llm=None):
     """retrieval_tools/llm can be injected (tests use stubs); defaults to
@@ -86,7 +94,10 @@ def run_agent(question, agent=None, max_steps=None, timeout_seconds=None):
           "citations_valid": bool,
           "citation_problems": [str, ...],
           "elapsed_seconds": float,
-          "error": str or None,   # set on timeout / max-steps / failure
+          "error": str or None,   # set on timeout / genuine failure only --
+                                   # NOT set when the agent exhausts its step
+                                   # budget; that case is surfaced as a normal
+                                   # "no relevant info" answer instead.
         }
     """
     agent = agent or build_agent()
@@ -125,9 +136,19 @@ def run_agent(question, agent=None, max_steps=None, timeout_seconds=None):
         logger.error(result["error"])
         return result
     except GraphRecursionError:
-        result["error"] = f"Agent exceeded MAX_AGENT_STEPS={max_steps} without producing a final answer"
+        # Step budget exhausted without a final answer. This is the
+        # guardrail working as intended (most often an out-of-corpus
+        # question), not a system failure -- so it's reported as a
+        # normal (if unsuccessful) answer, not an "error".
+        logger.warning(
+            "Agent exceeded MAX_AGENT_STEPS=%d without producing a final answer -- "
+            "treating as 'no relevant info found'",
+            max_steps,
+        )
+        result["answer"] = NO_RELEVANT_INFO_MESSAGE
+        result["citations_valid"] = False
+        result["citation_problems"] = ["No final answer was produced within the step budget."]
         result["elapsed_seconds"] = time.time() - start
-        logger.error(result["error"])
         return result
     except Exception as exc:
         result["error"] = f"Agent run failed: {exc}"

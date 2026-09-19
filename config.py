@@ -55,6 +55,14 @@ EVAL_QUESTIONS_PATH = os.getenv("EVAL_QUESTIONS_PATH", "evaluation_questions.csv
 EVAL_RUNS_OUTPUT_PATH = os.getenv("EVAL_RUNS_OUTPUT_PATH", "runs.csv")
 EVAL_REPORT_OUTPUT_PATH = os.getenv("EVAL_REPORT_OUTPUT_PATH", "evaluation_report.md")
 
+# --- API / UI ---
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+# Question length guardrail enforced at the FastAPI boundary (api/schemas.py)
+MAX_QUESTION_CHARS = int(os.getenv("MAX_QUESTION_CHARS", "500"))
+# Where the Streamlit app looks for the FastAPI backend
+STREAMLIT_BACKEND_URL = os.getenv("STREAMLIT_BACKEND_URL", "http://localhost:8000")
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 
